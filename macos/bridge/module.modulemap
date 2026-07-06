@@ -1,0 +1,4 @@
+module DopewarsBridge {
+    header "dpbridge.h"
+    export *
+}

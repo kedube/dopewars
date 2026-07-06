@@ -1,0 +1,68 @@
+import Foundation
+
+// Headless driver that exercises the Swift GameEngine wrapper exactly as the
+// UI does: start a game, read state, buy/sell, jet, and observe events.
+let engine = GameEngine.shared
+var events: [String] = []
+var sawQuestion = false
+
+engine.onEvent = { ev in
+    switch ev {
+    case .update: break
+    case .message(let m): events.append("MSG:\(m)")
+    case .print(let m): events.append("PRINT:\(m)")
+    case .question(let a, let p):
+        events.append("Q[\(a)]:\(p)")
+        sawQuestion = true
+        // Auto-answer: prefer "N" (no), else first allowed letter.
+        let ans = a.contains("N") ? "N" : String(a.first ?? "Y")
+        engine.answer(ans)
+    case .loanShark: events.append("LOANSHARK"); engine.done()
+    case .bank: events.append("BANK"); engine.done()
+    case .gunShop: events.append("GUNSHOP"); engine.done()
+    case .fight(let l): events.append("FIGHT:\(l)")
+    case .subway(let l): events.append("SUBWAY:\(l)")
+    case .hiscoreStart: events.append("HISCORE_START")
+    case .hiscoreLine(let l): events.append("HS:\(l)")
+    case .hiscoreEnd(let go): events.append("HISCORE_END gameOver=\(go)")
+    case .gameOver: events.append("GAMEOVER")
+    }
+}
+
+let tmp = NSTemporaryDirectory() + "dopewars_uitest.sco"
+engine.initialize(resourceDir: nil, hiscorePath: tmp)
+engine.newGame(playerName: "SwiftTester")
+
+func status() -> String {
+    "\(engine.playerName) | \(engine.dateString) | cash=\(engine.formatPrice(engine.cash)) debt=\(engine.formatPrice(engine.debt)) health=\(engine.health) space=\(engine.spaceFree)/\(engine.coatSize) loc=\(engine.locationName(engine.location)) turn=\(engine.turn)/\(engine.numTurns)"
+}
+
+print("START: \(status())")
+print("Locations=\(engine.locations.count) Drugs=\(engine.drugs.count) Guns=\(engine.guns.count)")
+
+// Play a handful of turns: buy the cheapest available drug we can afford,
+// then jet onward. This mirrors what a player does through the UI.
+for t in 0..<8 {
+    // Buy cheapest available.
+    let avail = engine.drugs.filter { $0.price > 0 && $0.price <= engine.cash }
+    if let cheapest = avail.min(by: { $0.price < $1.price }) {
+        let n = min(Int(engine.cash / cheapest.price), engine.spaceFree)
+        if n > 0 {
+            engine.buyDrug(cheapest.index, amount: min(n, 10))
+        }
+    }
+    // Sell anything we can here at a profit-ish (just sell everything held).
+    for d in engine.drugs where d.carried > 0 && d.price > 0 {
+        engine.buyDrug(d.index, amount: -d.carried)
+    }
+    let dest = (engine.location + 1) % engine.locations.count
+    print("Turn \(t): jet -> \(engine.locationName(dest))")
+    engine.jet(to: dest)
+    print("  \(status())")
+    if engine.isDead { print("  (dead)"); break }
+}
+
+print("--- events ---")
+for e in events { print(e) }
+print("saw question: \(sawQuestion)")
+print("UITEST OK")

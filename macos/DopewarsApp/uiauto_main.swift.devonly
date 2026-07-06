@@ -1,0 +1,126 @@
+// Headless UI auto-test: drives the REAL GameWindowController through a
+// game using performClick on its actual controls. Verifies the inline
+// prompt bar and fight HUD are visible, hit-testable, and functional.
+// Build: compiled with the app sources (minus main.swift/AppDelegate).
+import AppKit
+
+let app = NSApplication.shared
+app.setActivationPolicy(.accessory)
+
+let tmpScore = NSTemporaryDirectory() + "dopewars_uiauto.sco"
+try? FileManager.default.removeItem(atPath: tmpScore)
+GameEngine.shared.initialize(resourceDir: nil, hiscorePath: tmpScore)
+
+let controller = GameWindowController()
+guard let window = controller.window, let content = window.contentView else {
+    print("UIAUTO FAIL: no window"); exit(1)
+}
+window.layoutIfNeeded()
+
+var promptsAnswered = 0
+var fightsHandled = 0
+var promptHitTestOK = false
+var fightHitTestOK = false
+var checkedPromptHit = false
+var checkedFightHit = false
+
+func pump() {
+    RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.002))
+    window.layoutIfNeeded()
+}
+
+func buttons(in view: NSView) -> [NSButton] {
+    var out: [NSButton] = []
+    for sub in view.subviews {
+        if let b = sub as? NSButton { out.append(b) }
+        out.append(contentsOf: buttons(in: sub))
+    }
+    return out
+}
+
+func hitTestable(_ b: NSButton) -> Bool {
+    let r = b.convert(b.bounds, to: nil)
+    let p = content.convert(NSPoint(x: r.midX, y: r.midY), from: nil)
+    var v: NSView? = content.hitTest(p)
+    while let vv = v {
+        if vv === b { return true }
+        v = vv.superview === nil ? nil : nil
+    }
+    return content.hitTest(p) === b || content.hitTest(p)?.isDescendant(of: b) == true
+}
+
+let engine = GameEngine.shared
+controller.startNewGame(name: "UITester", antique: false)
+pump()
+
+let startTurn = engine.turn
+var steps = 0
+outer: while steps < 500 {
+    steps += 1
+    pump()
+
+    if !controller.promptBox.isHidden {
+        let bs = buttons(in: controller.promptBox)
+        if !checkedPromptHit, let first = bs.first {
+            checkedPromptHit = true
+            promptHitTestOK = hitTestable(first)
+        }
+        // Prefer "No" so we never open bank/shop sheets.
+        let target = bs.first(where: { $0.title == "No" }) ?? bs.first
+        guard let btn = target else { print("UIAUTO FAIL: prompt w/o buttons"); exit(1) }
+        btn.performClick(nil)
+        promptsAnswered += 1
+        continue
+    }
+
+    if !controller.fightBox.isHidden {
+        fightsHandled += 1
+        if !checkedFightHit {
+            let candidates = [controller.fightRunButton, controller.fightDealButton,
+                              controller.fightFireButton, controller.fightStandButton]
+                .filter { !$0.isHidden && $0.isEnabled }
+            if let c = candidates.first {
+                checkedFightHit = true
+                fightHitTestOK = hitTestable(c)
+            }
+        }
+        if engine.fightIsOver && controller.fightDealButton.isEnabled {
+            controller.fightDealButton.performClick(nil)
+        } else if controller.fightFireButton.isEnabled && !controller.fightFireButton.isHidden {
+            controller.fightFireButton.performClick(nil)
+        } else if engine.fightCanRunHere && controller.fightRunButton.isEnabled {
+            controller.fightRunButton.performClick(nil)
+        } else if controller.fightStandButton.isEnabled && !controller.fightStandButton.isHidden {
+            controller.fightStandButton.performClick(nil)
+        } else if !engine.fightCanRunHere {
+            engine.jet(to: (engine.location + 1) % engine.locations.count)
+        }
+        if engine.isDead { break }
+        continue
+    }
+
+    if engine.isDead || (engine.numTurns > 0 && engine.turn >= engine.numTurns) {
+        break
+    }
+
+    // Travel via the location strip control (exercises its action path).
+    let dest = (engine.location + 1) % engine.locations.count
+    controller.locationStrip.selectedSegment = dest
+    if let action = controller.locationStrip.action {
+        _ = controller.locationStrip.sendAction(action, to: controller.locationStrip.target)
+    }
+}
+
+pump()
+let turnsPlayed = engine.turn - startTurn
+print("steps=\(steps) turnsPlayed=\(turnsPlayed) prompts=\(promptsAnswered) fights=\(fightsHandled)")
+print("prompt hit-testable: \(checkedPromptHit ? (promptHitTestOK ? "YES" : "NO!") : "n/a")")
+print("fight hit-testable:  \(checkedFightHit ? (fightHitTestOK ? "YES" : "NO!") : "n/a")")
+print("log length: \(controller.logView.string.count)")
+
+var ok = turnsPlayed >= 5 && promptsAnswered >= 1
+ok = ok && controller.logView.string.count > 50
+if checkedPromptHit { ok = ok && promptHitTestOK }
+if checkedFightHit { ok = ok && fightHitTestOK }
+print(ok ? "UIAUTO OK" : "UIAUTO FAIL")
+exit(ok ? 0 : 1)

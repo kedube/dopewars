@@ -32,3 +32,9 @@ autom4te.cache
 compile
 doc/dopewars.6
 po/POTFILES
+macos/.DS_Store
+.DS_Store
+macos/build/
+# The hand-written macOS engine config is source, not an autotools artifact;
+# exempt it from the config.h pattern above.
+!macos/config.h
