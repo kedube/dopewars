@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Dope Wars.app",
+      "type": "shell",
+      "command": "./build_app.sh",
+      "options": { "cwd": "${workspaceFolder}/macos" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Run Dope Wars.app",
+      "type": "shell",
+      "command": "open \"build/Dope Wars.app\"",
+      "options": { "cwd": "${workspaceFolder}/macos" },
+      "dependsOn": "Build Dope Wars.app",
+      "problemMatcher": []
+    },
+    {
+      "label": "Package DMG",
+      "type": "shell",
+      "command": "./make_dmg.sh",
+      "options": { "cwd": "${workspaceFolder}/macos" },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Clean macOS build",
+      "type": "shell",
+      "command": "rm -rf build",
+      "options": { "cwd": "${workspaceFolder}/macos" },
+      "problemMatcher": []
+    }
+  ]
+}
