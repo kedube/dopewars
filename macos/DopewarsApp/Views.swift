@@ -33,6 +33,204 @@ enum DopewarsPrefs {
             NotificationCenter.default.post(name: .dopewarsPrefsChanged, object: nil)
         }
     }
+
+    // MARK: Game rules (engine overrides, applied at the next new game)
+
+    static let defaultGameTurns = 31
+    static let defaultStartCash: Int64 = 2000
+    static let defaultStartDebt: Int64 = 5500
+    static let defaultDebtInterest = 10
+    static let defaultBankInterest = 5
+    static let defaultCheapDivide = 4
+    static let defaultExpensiveMultiply = 4
+    static let defaultPlayerArmor = 100
+    static let defaultBitchArmor = 50
+    static let defaultBitchMinPrice: Int64 = 50000
+    static let defaultBitchMaxPrice: Int64 = 150000
+    static let defaultStartDay = 1
+    static let defaultStartMonth = 12
+    static let defaultStartYear = 1984
+    static let defaultDifficulty = 1          // 0 easy, 1 normal, 2 hard
+    static let defaultCurrencySymbol = "$"
+    static let defaultCurrencyPrefix = true   // symbol precedes the amount
+
+    private static let turnsKey = "DopewarsGameTurns"
+    private static let startCashKey = "DopewarsStartCash"
+    private static let startDebtKey = "DopewarsStartDebt"
+    private static let sanitizedKey = "DopewarsSanitized"
+    private static let debtInterestKey = "DopewarsDebtInterest"
+    private static let bankInterestKey = "DopewarsBankInterest"
+    private static let cheapDivideKey = "DopewarsCheapDivide"
+    private static let expensiveMultiplyKey = "DopewarsExpensiveMultiply"
+    private static let playerArmorKey = "DopewarsPlayerArmor"
+    private static let bitchArmorKey = "DopewarsBitchArmor"
+    private static let bitchMinPriceKey = "DopewarsBitchMinPrice"
+    private static let bitchMaxPriceKey = "DopewarsBitchMaxPrice"
+    private static let startDayKey = "DopewarsStartDay"
+    private static let startMonthKey = "DopewarsStartMonth"
+    private static let startYearKey = "DopewarsStartYear"
+    private static let difficultyKey = "DopewarsDifficulty"
+    private static let familyFriendlyKey = "DopewarsFamilyFriendly"
+    private static let currencySymbolKey = "DopewarsCurrencySymbol"
+    private static let currencyPrefixKey = "DopewarsCurrencyPrefix"
+
+    private static let gameRuleKeys = [
+        turnsKey, startCashKey, startDebtKey, sanitizedKey,
+        debtInterestKey, bankInterestKey, cheapDivideKey,
+        expensiveMultiplyKey, playerArmorKey, bitchArmorKey,
+        bitchMinPriceKey, bitchMaxPriceKey,
+        startDayKey, startMonthKey, startYearKey,
+        difficultyKey, familyFriendlyKey,
+        currencySymbolKey, currencyPrefixKey,
+    ]
+
+    private static func int64(_ key: String, default def: Int64) -> Int64 {
+        UserDefaults.standard.object(forKey: key) == nil
+            ? def : Int64(UserDefaults.standard.integer(forKey: key))
+    }
+
+    private static func int(_ key: String, default def: Int,
+                            clamp range: ClosedRange<Int>) -> Int {
+        Int(int64(key, default: Int64(def))).clamped(to: range)
+    }
+
+    private static func set(_ value: Int, forKey key: String) {
+        UserDefaults.standard.set(value, forKey: key)
+    }
+
+    /// Days per game; 0 means the game never ends.
+    static var gameTurns: Int {
+        get { int(turnsKey, default: defaultGameTurns, clamp: 0...Int(Int32.max)) }
+        set { set(max(0, newValue), forKey: turnsKey) }
+    }
+
+    static var startCash: Int64 {
+        get { int64(startCashKey, default: defaultStartCash) }
+        set { set(Int(max(0, newValue)), forKey: startCashKey) }
+    }
+
+    static var startDebt: Int64 {
+        get { int64(startDebtKey, default: defaultStartDebt) }
+        set { set(Int(max(0, newValue)), forKey: startDebtKey) }
+    }
+
+    /// Tones down the engine's random events.
+    static var sanitized: Bool {
+        get { UserDefaults.standard.bool(forKey: sanitizedKey) }
+        set { UserDefaults.standard.set(newValue, forKey: sanitizedKey) }
+    }
+
+    /// Daily interest on the loan shark debt, %. Negative shrinks the debt.
+    static var debtInterest: Int {
+        get { int(debtInterestKey, default: defaultDebtInterest, clamp: -100...1000) }
+        set { set(newValue.clamped(to: -100...1000), forKey: debtInterestKey) }
+    }
+
+    /// Daily interest on the bank balance, %.
+    static var bankInterest: Int {
+        get { int(bankInterestKey, default: defaultBankInterest, clamp: -100...1000) }
+        set { set(newValue.clamped(to: -100...1000), forKey: bankInterestKey) }
+    }
+
+    /// Divider applied to a drug's price on a "cheap" event.
+    static var cheapDivide: Int {
+        get { int(cheapDivideKey, default: defaultCheapDivide, clamp: 1...1000) }
+        set { set(newValue.clamped(to: 1...1000), forKey: cheapDivideKey) }
+    }
+
+    /// Multiplier applied to a drug's price on a "spike" event.
+    static var expensiveMultiply: Int {
+        get { int(expensiveMultiplyKey, default: defaultExpensiveMultiply,
+                  clamp: 1...1000) }
+        set { set(newValue.clamped(to: 1...1000), forKey: expensiveMultiplyKey) }
+    }
+
+    /// Player's % resistance to gunshots (lower = harder fights).
+    static var playerArmor: Int {
+        get { int(playerArmorKey, default: defaultPlayerArmor, clamp: 0...100) }
+        set { set(newValue.clamped(to: 0...100), forKey: playerArmorKey) }
+    }
+
+    /// Escorts' % resistance to gunshots.
+    static var bitchArmor: Int {
+        get { int(bitchArmorKey, default: defaultBitchArmor, clamp: 1...100) }
+        set { set(newValue.clamped(to: 1...100), forKey: bitchArmorKey) }
+    }
+
+    static var bitchMinPrice: Int64 {
+        get { int64(bitchMinPriceKey, default: defaultBitchMinPrice) }
+        set { set(Int(max(0, newValue)), forKey: bitchMinPriceKey) }
+    }
+
+    static var bitchMaxPrice: Int64 {
+        get { max(int64(bitchMaxPriceKey, default: defaultBitchMaxPrice),
+                  bitchMinPrice) }
+        set { set(Int(max(0, newValue)), forKey: bitchMaxPriceKey) }
+    }
+
+    static var startDay: Int {
+        get { int(startDayKey, default: defaultStartDay, clamp: 1...31) }
+        set { set(newValue.clamped(to: 1...31), forKey: startDayKey) }
+    }
+
+    static var startMonth: Int {
+        get { int(startMonthKey, default: defaultStartMonth, clamp: 1...12) }
+        set { set(newValue.clamped(to: 1...12), forKey: startMonthKey) }
+    }
+
+    static var startYear: Int {
+        get { int(startYearKey, default: defaultStartYear, clamp: 0...9999) }
+        set { set(newValue.clamped(to: 0...9999), forKey: startYearKey) }
+    }
+
+    /// Difficulty preset: 0 easy, 1 normal, 2 hard.
+    static var difficulty: Int {
+        get { int(difficultyKey, default: defaultDifficulty, clamp: 0...2) }
+        set { set(newValue.clamped(to: 0...2), forKey: difficultyKey) }
+    }
+
+    /// Engine messages say "escort(s)" instead of the original wording.
+    static var familyFriendly: Bool {
+        get { UserDefaults.standard.bool(forKey: familyFriendlyKey) }
+        set { UserDefaults.standard.set(newValue, forKey: familyFriendlyKey) }
+    }
+
+    /// Currency symbol shown on prices. Cosmetic; applies immediately.
+    static var currencySymbol: String {
+        get {
+            UserDefaults.standard.string(forKey: currencySymbolKey)
+                ?? defaultCurrencySymbol
+        }
+        set {
+            let symbol = newValue.trimmingCharacters(in: .whitespaces)
+            UserDefaults.standard.set(symbol.isEmpty ? defaultCurrencySymbol
+                                                     : symbol,
+                                      forKey: currencySymbolKey)
+            NotificationCenter.default.post(name: .dopewarsPrefsChanged, object: nil)
+        }
+    }
+
+    /// Whether the currency symbol precedes the amount ($100 vs 100$).
+    static var currencyPrefix: Bool {
+        get { bool(currencyPrefixKey) }
+        set {
+            UserDefaults.standard.set(newValue, forKey: currencyPrefixKey)
+            NotificationCenter.default.post(name: .dopewarsPrefsChanged, object: nil)
+        }
+    }
+
+    static func restoreGameRuleDefaults() {
+        for key in gameRuleKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        NotificationCenter.default.post(name: .dopewarsPrefsChanged, object: nil)
+    }
+}
+
+private extension Comparable {
+    func clamped(to range: ClosedRange<Self>) -> Self {
+        min(max(self, range.lowerBound), range.upperBound)
+    }
 }
 
 extension NSView {
@@ -193,6 +391,16 @@ final class LineChartView: NSView {
 final class StatTile: NSView {
     let valueLabel = NSTextField(labelWithString: "")
     private let captionLabel: NSTextField
+
+    /// Caption text; settable so name-dependent tiles (e.g. the
+    /// family-friendly "escorts" wording) can follow preference changes.
+    var caption: String {
+        get { captionLabel.stringValue }
+        set {
+            captionLabel.stringValue = newValue
+            iconView.image?.accessibilityDescription = newValue
+        }
+    }
     private let iconView = NSImageView()
     private let content: NSStackView
 
@@ -307,6 +515,12 @@ final class WelcomeView: NSView, NSTextFieldDelegate {
         statusLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         statusLabel.textColor = .systemGreen
         statusLabel.alignment = .center
+        // Finale narratives (e.g. the paraquat-weed death) run long.
+        statusLabel.lineBreakMode = .byWordWrapping
+        statusLabel.maximumNumberOfLines = 4
+        statusLabel.preferredMaxLayoutWidth = 480
+        statusLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 480)
+            .isActive = true
 
         // Prefill the last name used; fall back to the account's full name.
         let saved = UserDefaults.standard.string(forKey: Self.playerNameKey) ?? ""

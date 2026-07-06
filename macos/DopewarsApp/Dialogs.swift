@@ -1,15 +1,37 @@
 import AppKit
 
 /// Preferences: toggle the market-intel aids (trend sparklines, average
-/// paid). Turning them off makes the game harder, like the original.
-final class PreferencesWindowController: NSWindowController {
+/// paid) and override the engine's game rules (length, starting money,
+/// sanitized events). Game rules apply at the next new game.
+final class PreferencesWindowController: NSWindowController, NSTextFieldDelegate {
     private let trendsCheck = NSButton(checkboxWithTitle: "Show drug price trends",
                                        target: nil, action: nil)
     private let avgCheck = NSButton(checkboxWithTitle: "Show average paid per drug",
                                     target: nil, action: nil)
+    private let turnsField = NSTextField(string: "")
+    private let cashField = NSTextField(string: "")
+    private let debtField = NSTextField(string: "")
+    private let debtInterestField = NSTextField(string: "")
+    private let bankInterestField = NSTextField(string: "")
+    private let spikeField = NSTextField(string: "")
+    private let crashField = NSTextField(string: "")
+    private let playerArmorField = NSTextField(string: "")
+    private let escortArmorField = NSTextField(string: "")
+    private let escortMinField = NSTextField(string: "")
+    private let escortMaxField = NSTextField(string: "")
+    private let startDayField = NSTextField(string: "")
+    private let startMonthField = NSTextField(string: "")
+    private let startYearField = NSTextField(string: "")
+    private let difficultyPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let currencyField = NSTextField(string: "")
+    private let currencyPositionPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let sanitizedCheck = NSButton(checkboxWithTitle: "Sanitize random events",
+                                          target: nil, action: nil)
+    private let familyFriendlyCheck = NSButton(
+        checkboxWithTitle: "Family-friendly wording", target: nil, action: nil)
 
     convenience init() {
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 845),
                          styleMask: [.titled, .closable],
                          backing: .buffered, defer: false)
         w.title = "Preferences"
@@ -41,14 +63,122 @@ final class PreferencesWindowController: NSWindowController {
         note.font = .systemFont(ofSize: 11)
         note.textColor = .secondaryLabelColor
 
+        let gameTitle = NSTextField(labelWithString: "Game rules")
+        gameTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+
+        // (field, minimum, maximum) — nil max means unbounded.
+        let fieldSpecs: [(NSTextField, Int, Int?)] = [
+            (turnsField, 0, nil),
+            (cashField, 0, nil),
+            (debtField, 0, nil),
+            (debtInterestField, -100, 1000),
+            (bankInterestField, -100, 1000),
+            (spikeField, 1, 1000),
+            (crashField, 1, 1000),
+            (playerArmorField, 0, 100),
+            (escortArmorField, 1, 100),
+            (escortMinField, 0, nil),
+            (escortMaxField, 0, nil),
+            (startDayField, 1, 31),
+            (startMonthField, 1, 12),
+            (startYearField, 0, 9999),
+        ]
+        for (field, minVal, maxVal) in fieldSpecs {
+            let fmt = NumberFormatter()
+            fmt.numberStyle = .none
+            fmt.minimum = NSNumber(value: minVal)
+            if let maxVal { fmt.maximum = NSNumber(value: maxVal) }
+            field.formatter = fmt
+            field.delegate = self
+            let width: CGFloat = (field === startDayField
+                                  || field === startMonthField) ? 36 : 80
+            field.widthAnchor.constraint(equalToConstant: width).isActive = true
+        }
+        let dateStack = NSStackView(views: [startDayField, startMonthField,
+                                            startYearField])
+        dateStack.orientation = .horizontal
+        dateStack.spacing = 4
+
+        difficultyPopup.addItems(withTitles: ["Easy", "Normal", "Hard"])
+        difficultyPopup.target = self
+        difficultyPopup.action = #selector(toggled)
+
+        currencyField.delegate = self
+        currencyField.widthAnchor.constraint(equalToConstant: 40).isActive = true
+        currencyPositionPopup.addItems(withTitles: ["before amount", "after amount"])
+        currencyPositionPopup.target = self
+        currencyPositionPopup.action = #selector(toggled)
+        let currencyStack = NSStackView(views: [currencyField,
+                                                currencyPositionPopup])
+        currencyStack.orientation = .horizontal
+        currencyStack.spacing = 4
+        let grid = NSGridView(views: [
+            [gridLabel("Difficulty:"), difficultyPopup,
+             hint("scales police presence and cop squads")],
+            [gridLabel("Game length:"), turnsField,
+             hint("days (0 = never ends)")],
+            [gridLabel("Starting cash:"), cashField, hint("$")],
+            [gridLabel("Starting debt:"), debtField, hint("$")],
+            [gridLabel("Debt interest:"), debtInterestField,
+             hint("% per day, charged by the loan shark")],
+            [gridLabel("Bank interest:"), bankInterestField,
+             hint("% per day, earned on your balance")],
+            [gridLabel("Price spikes:"), spikeField,
+             hint("× multiplier on \"expensive\" drug events")],
+            [gridLabel("Price crashes:"), crashField,
+             hint("÷ divider on \"cheap\" drug events")],
+            [gridLabel("Your armor:"), playerArmorField,
+             hint("% gunshot resistance (lower = harder fights)")],
+            [gridLabel("Escort armor:"), escortArmorField,
+             hint("% gunshot resistance of your escorts")],
+            [gridLabel("Escort hire, min:"), escortMinField, hint("$")],
+            [gridLabel("Escort hire, max:"), escortMaxField, hint("$")],
+            [gridLabel("Start date:"), dateStack,
+             hint("day / month / year of day 1")],
+            [gridLabel("Currency:"), currencyStack,
+             hint("symbol on prices; applies immediately")],
+        ])
+        grid.rowSpacing = 6
+        grid.columnSpacing = 8
+
+        sanitizedCheck.target = self
+        sanitizedCheck.action = #selector(toggled)
+        let sanitizedHint = hint("Tones down the nastier random events.")
+
+        familyFriendlyCheck.target = self
+        familyFriendlyCheck.action = #selector(toggled)
+        let familyFriendlyHint = hint("News log and stats show \"escort\" "
+                                      + "instead of the original wording.")
+
+        let restoreButton = NSButton(title: "Restore Defaults", target: self,
+                                     action: #selector(restoreDefaults))
+
+        let gameNote = NSTextField(wrappingLabelWithString:
+            "Game rules take effect when you start a new game. High scores "
+            + "from games with non-default rules aren't really comparable.")
+        gameNote.font = .systemFont(ofSize: 11)
+        gameNote.textColor = .secondaryLabelColor
+
+        refreshGameControls()
+
         let stack = NSStackView(views: [title, trendsCheck, trendsHint,
-                                        avgCheck, avgHint, note])
+                                        avgCheck, avgHint, note,
+                                        gameTitle, grid,
+                                        sanitizedCheck, sanitizedHint,
+                                        familyFriendlyCheck, familyFriendlyHint,
+                                        restoreButton, gameNote])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 6
         stack.setCustomSpacing(12, after: title)
         stack.setCustomSpacing(12, after: trendsHint)
         stack.setCustomSpacing(16, after: avgHint)
+        stack.setCustomSpacing(24, after: note)
+        stack.setCustomSpacing(12, after: gameTitle)
+        stack.setCustomSpacing(12, after: grid)
+        stack.setCustomSpacing(12, after: sanitizedHint)
+        stack.setCustomSpacing(12, after: familyFriendlyHint)
+        stack.setCustomSpacing(12, after: restoreButton)
         stack.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(stack)
         NSLayoutConstraint.activate([
@@ -67,9 +197,78 @@ final class PreferencesWindowController: NSWindowController {
         return l
     }
 
+    private func gridLabel(_ text: String) -> NSTextField {
+        NSTextField(labelWithString: text)
+    }
+
+    private func refreshGameControls() {
+        turnsField.integerValue = DopewarsPrefs.gameTurns
+        cashField.integerValue = Int(DopewarsPrefs.startCash)
+        debtField.integerValue = Int(DopewarsPrefs.startDebt)
+        debtInterestField.integerValue = DopewarsPrefs.debtInterest
+        bankInterestField.integerValue = DopewarsPrefs.bankInterest
+        spikeField.integerValue = DopewarsPrefs.expensiveMultiply
+        crashField.integerValue = DopewarsPrefs.cheapDivide
+        playerArmorField.integerValue = DopewarsPrefs.playerArmor
+        escortArmorField.integerValue = DopewarsPrefs.bitchArmor
+        escortMinField.integerValue = Int(DopewarsPrefs.bitchMinPrice)
+        escortMaxField.integerValue = Int(DopewarsPrefs.bitchMaxPrice)
+        startDayField.integerValue = DopewarsPrefs.startDay
+        startMonthField.integerValue = DopewarsPrefs.startMonth
+        startYearField.integerValue = DopewarsPrefs.startYear
+        difficultyPopup.selectItem(at: DopewarsPrefs.difficulty)
+        currencyField.stringValue = DopewarsPrefs.currencySymbol
+        currencyPositionPopup.selectItem(at: DopewarsPrefs.currencyPrefix ? 0 : 1)
+        sanitizedCheck.state = DopewarsPrefs.sanitized ? .on : .off
+        familyFriendlyCheck.state = DopewarsPrefs.familyFriendly ? .on : .off
+    }
+
+    private func saveGameFields() {
+        // An emptied field keeps its previous value rather than becoming 0.
+        func save(_ field: NSTextField, _ store: (Int) -> Void) {
+            if !field.stringValue.isEmpty { store(field.integerValue) }
+        }
+        save(turnsField) { DopewarsPrefs.gameTurns = $0 }
+        save(cashField) { DopewarsPrefs.startCash = Int64($0) }
+        save(debtField) { DopewarsPrefs.startDebt = Int64($0) }
+        save(debtInterestField) { DopewarsPrefs.debtInterest = $0 }
+        save(bankInterestField) { DopewarsPrefs.bankInterest = $0 }
+        save(spikeField) { DopewarsPrefs.expensiveMultiply = $0 }
+        save(crashField) { DopewarsPrefs.cheapDivide = $0 }
+        save(playerArmorField) { DopewarsPrefs.playerArmor = $0 }
+        save(escortArmorField) { DopewarsPrefs.bitchArmor = $0 }
+        save(escortMinField) { DopewarsPrefs.bitchMinPrice = Int64($0) }
+        save(escortMaxField) { DopewarsPrefs.bitchMaxPrice = Int64($0) }
+        save(startDayField) { DopewarsPrefs.startDay = $0 }
+        save(startMonthField) { DopewarsPrefs.startMonth = $0 }
+        save(startYearField) { DopewarsPrefs.startYear = $0 }
+        let symbol = currencyField.stringValue.trimmingCharacters(in: .whitespaces)
+        if !symbol.isEmpty && symbol != DopewarsPrefs.currencySymbol {
+            DopewarsPrefs.currencySymbol = symbol
+        }
+        refreshGameControls()
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        saveGameFields()
+    }
+
     @objc private func toggled() {
         DopewarsPrefs.showTrends = trendsCheck.state == .on
         DopewarsPrefs.showAvgPaid = avgCheck.state == .on
+        DopewarsPrefs.sanitized = sanitizedCheck.state == .on
+        DopewarsPrefs.familyFriendly = familyFriendlyCheck.state == .on
+        DopewarsPrefs.difficulty = difficultyPopup.indexOfSelectedItem
+        let prefix = currencyPositionPopup.indexOfSelectedItem == 0
+        if prefix != DopewarsPrefs.currencyPrefix {
+            DopewarsPrefs.currencyPrefix = prefix
+        }
+    }
+
+    @objc private func restoreDefaults() {
+        window?.makeFirstResponder(nil)   // commit any in-progress edit first
+        DopewarsPrefs.restoreGameRuleDefaults()
+        refreshGameControls()
     }
 }
 

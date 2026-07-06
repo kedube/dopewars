@@ -23,6 +23,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         GameEngine.shared.initialize(resourceDir: Bundle.main.resourcePath,
                                      hiscorePath: hiscore)
+        // Apply display preferences before the window builds its stat
+        // tiles, so captions and prices are right from launch.
+        GameEngine.shared.setFamilyFriendlyNames(DopewarsPrefs.familyFriendly)
+        GameEngine.shared.setCurrency(symbol: DopewarsPrefs.currencySymbol,
+                                      prefix: DopewarsPrefs.currencyPrefix)
 
         // Restore mute preference.
         let muted = UserDefaults.standard.bool(forKey: Self.muteDefaultsKey)

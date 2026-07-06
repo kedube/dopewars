@@ -64,6 +64,53 @@ void dp_new_game(const char *player_name);
 /* Enable "antique" (original Drug Wars) mode for the next new game. */
 void dp_set_antique(bool antique);
 
+/* Game-rule overrides, applied to the NEXT new game. Engine defaults
+ * are given in the comments; num_turns of 0 means the game never ends,
+ * and sanitized tones down random events. */
+typedef struct {
+  int     num_turns;           /* 31 */
+  int64_t start_cash;          /* 2000 */
+  int64_t start_debt;          /* 5500 */
+  bool    sanitized;           /* false */
+  int     debt_interest;       /* 10 (% per day on loan shark debt) */
+  int     bank_interest;       /* 5  (% per day on bank balance) */
+  int     cheap_divide;        /* 4  (price divider on "cheap" events) */
+  int     expensive_multiply;  /* 4  (price multiplier on "spike" events) */
+  int     player_armor;        /* 100 (% gunshot resistance) */
+  int     bitch_armor;         /* 50  (% gunshot resistance of escorts) */
+  int64_t bitch_min_price;     /* 50000  (escort hire price range) */
+  int64_t bitch_max_price;     /* 150000 */
+  int64_t spy_price;           /* 20000 (escort spy-on-enemy cost) */
+  int64_t tipoff_price;        /* 10000 (escort cop-tipoff cost) */
+  int     start_day;           /* 1    (in-game calendar start date) */
+  int     start_month;         /* 12 */
+  int     start_year;          /* 1984 */
+} DPGameRules;
+
+/* Callers must fill in EVERY field (start from the defaults above). */
+void dp_set_game_rules(const DPGameRules *rules);
+
+/* Difficulty preset: scales the per-location police presence and the
+ * per-cop combat stats from their configured baselines (snapshotted at
+ * dp_init). Applies to encounters from that point on; set before a new
+ * game. Normal restores the baselines exactly. */
+typedef enum {
+  DP_DIFFICULTY_EASY = 0,
+  DP_DIFFICULTY_NORMAL = 1,
+  DP_DIFFICULTY_HARD = 2
+} DPDifficulty;
+
+void dp_set_difficulty(DPDifficulty level);
+
+/* If enabled, engine-generated messages say "escort(s)" instead of the
+ * original "bitch(es)" wording, matching the app's UI terminology. */
+void dp_set_family_friendly_names(bool family_friendly);
+
+/* Currency used when formatting prices: the symbol (e.g. "$") and
+ * whether it precedes the amount. A NULL/empty symbol restores "$".
+ * Cosmetic only — applies to all prices formatted from now on. */
+void dp_set_currency(const char *symbol, bool prefix);
+
 /* ---- Read accessors (current player / world) ----------------------- */
 
 const char *dp_player_name(void);

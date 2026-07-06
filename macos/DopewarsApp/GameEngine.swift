@@ -86,6 +86,55 @@ final class GameEngine {
 
     func setAntique(_ on: Bool) { dp_set_antique(on) }
 
+    /// Game-rule overrides; take effect at the next new game.
+    func setGameRules(turns: Int, startCash: Int64, startDebt: Int64,
+                      sanitized: Bool, debtInterest: Int, bankInterest: Int,
+                      cheapDivide: Int, expensiveMultiply: Int,
+                      playerArmor: Int, bitchArmor: Int,
+                      bitchMinPrice: Int64, bitchMaxPrice: Int64,
+                      startDay: Int, startMonth: Int, startYear: Int) {
+        var r = DPGameRules()
+        r.num_turns = Int32(turns)
+        r.start_cash = startCash
+        r.start_debt = startDebt
+        r.sanitized = sanitized
+        r.debt_interest = Int32(debtInterest)
+        r.bank_interest = Int32(bankInterest)
+        r.cheap_divide = Int32(cheapDivide)
+        r.expensive_multiply = Int32(expensiveMultiply)
+        r.player_armor = Int32(playerArmor)
+        r.bitch_armor = Int32(bitchArmor)
+        r.bitch_min_price = bitchMinPrice
+        r.bitch_max_price = bitchMaxPrice
+        // Spy/tipoff are multiplayer-only errands with no effect in this
+        // single-player port; keep the engine defaults rather than
+        // exposing dead knobs in Preferences.
+        r.spy_price = 20000
+        r.tipoff_price = 10000
+        r.start_day = Int32(startDay)
+        r.start_month = Int32(startMonth)
+        r.start_year = Int32(startYear)
+        dp_set_game_rules(&r)
+    }
+
+    /// Difficulty preset (0 easy, 1 normal, 2 hard); scales police
+    /// presence and cop squads from the configured baselines.
+    func setDifficulty(_ level: Int) {
+        dp_set_difficulty(DPDifficulty(UInt32(max(0, min(2, level)))))
+    }
+
+    /// Swap the engine's "bitch(es)" wording for "escort(s)" in
+    /// generated messages, matching the UI's terminology.
+    func setFamilyFriendlyNames(_ on: Bool) {
+        dp_set_family_friendly_names(on)
+    }
+
+    /// Currency used by the engine's price formatting: symbol and
+    /// whether it precedes the amount. Cosmetic; applies immediately.
+    func setCurrency(symbol: String, prefix: Bool) {
+        symbol.withCString { dp_set_currency($0, prefix) }
+    }
+
     func newGame(playerName: String) {
         started = true
         playerName.withCString { dp_new_game($0) }

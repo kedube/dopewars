@@ -131,7 +131,7 @@ swiftc -o build/uiautotest -I bridge \
 | What | Where |
 | ---- | ----- |
 | High scores | `~/Library/Application Support/Dopewars/dopewars.sco` |
-| Preferences (appearance, mute, dealer name, market-intel toggles, window frame) | `defaults read io.sourceforge.dopewars.macos` |
+| Preferences (appearance, mute, dealer name, market-intel toggles, game rules, window frame) | `defaults read io.sourceforge.dopewars.macos` |
 
 ## DMG packaging and GitHub releases
 

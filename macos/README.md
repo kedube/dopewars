@@ -40,9 +40,14 @@ client. This port adds a third front-end that is genuinely native to macOS:
     (opponent name/escort/health, eased damage), Buy/Sell/Drop/Jet
     buttons, news log, and keyboard shortcuts (B/S/D/J, 1–8 to travel,
     F/R/S/D in fights, Y/N for prompts).
-  - `Dialogs.swift` — Preferences (market-intel difficulty toggles), trade
-    popover, gun shop / bank / loan shark sheets, high-scores window, and
-    the map-based location picker (also used when fleeing a fight).
+  - `Dialogs.swift` — Preferences (market-intel toggles and game-rule
+    overrides — difficulty preset, game length, starting cash/debt,
+    interest rates, price spike/crash size, armor, escort economics,
+    start date, sanitized events, family-friendly wording — applied at
+    the next new game — and the currency symbol/position, which applies
+    immediately), trade popover, gun shop / bank / loan shark
+    sheets, high-scores window, and the map-based location picker (also
+    used when fleeing a fight).
   - `AppDelegate.swift` / `main.swift` — app bootstrap, full menu bar
     (Preferences, appearance override, Edit/Window menus, Mute Sound,
     standard About panel).

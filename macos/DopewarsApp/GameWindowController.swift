@@ -102,6 +102,9 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
     private var tablesPrefConstraint: NSLayoutConstraint?
     private var refreshScheduled = false
     private var pendingHiscores: [(text: String, own: Bool)] = []
+    /// Most recent engine print; at game over this holds the finale
+    /// narrative (e.g. how you died) plus the high-score commentary.
+    private var lastPrintMessage = ""
     private var hiscoresWindow: HighScoresWindowController?
     private var tradePopover: NSPopover?
     private var keyMonitor: Any?
@@ -129,10 +132,14 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
         applyColumnPrefs()
     }
 
-    /// Show or hide the market-intel columns per Preferences.
+    /// Re-apply live-effect preferences: market-intel columns and the
+    /// currency used on displayed prices.
     @objc private func prefsChanged() {
+        engine.setCurrency(symbol: DopewarsPrefs.currencySymbol,
+                           prefix: DopewarsPrefs.currencyPrefix)
         applyColumnPrefs()
         drugTable.reloadData()
+        scheduleRefresh()
     }
 
     private func applyColumnPrefs() {
@@ -609,9 +616,28 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
     func startNewGame(name: String, antique: Bool) {
         dismissWelcome()
         engine.setAntique(antique)
+        engine.setGameRules(turns: DopewarsPrefs.gameTurns,
+                            startCash: DopewarsPrefs.startCash,
+                            startDebt: DopewarsPrefs.startDebt,
+                            sanitized: DopewarsPrefs.sanitized,
+                            debtInterest: DopewarsPrefs.debtInterest,
+                            bankInterest: DopewarsPrefs.bankInterest,
+                            cheapDivide: DopewarsPrefs.cheapDivide,
+                            expensiveMultiply: DopewarsPrefs.expensiveMultiply,
+                            playerArmor: DopewarsPrefs.playerArmor,
+                            bitchArmor: DopewarsPrefs.bitchArmor,
+                            bitchMinPrice: DopewarsPrefs.bitchMinPrice,
+                            bitchMaxPrice: DopewarsPrefs.bitchMaxPrice,
+                            startDay: DopewarsPrefs.startDay,
+                            startMonth: DopewarsPrefs.startMonth,
+                            startYear: DopewarsPrefs.startYear)
+        engine.setDifficulty(DopewarsPrefs.difficulty)
+        engine.setFamilyFriendlyNames(DopewarsPrefs.familyFriendly)
+        bitchesTile.caption = engine.bitchesName.uppercased()
         clearLog()
         lastCash = nil
         lastHealth = nil
+        lastPrintMessage = ""
         priceHistory = [:]
         netWorthHistory = []
         lastRecordedTurn = nil
@@ -678,6 +704,7 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
         case .message(let m):
             appendLog(m, color: .secondaryLabelColor)
         case .print(let m):
+            lastPrintMessage = m
             appendLog(m, color: .labelColor)
         case .subway(let loc):
             appendLog("You travel to \(loc)…", color: .systemBlue)
@@ -793,8 +820,8 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
 
         let loc = engine.locationName(engine.location)
         locationLabel.stringValue = "📍 \(loc)"
-        window?.title = turns > 0 ? "\(loc) — Day \(engine.turn) of \(turns)"
-                                  : "\(loc) — Day \(engine.turn)"
+        window?.title = turns > 0 ? "Dope Wars - Day \(engine.turn) of \(turns)"
+                                  : "Dope Wars - Day \(engine.turn)"
 
         if engine.location < locationStrip.segmentCount {
             locationStrip.selectedSegment = engine.location
@@ -1413,9 +1440,19 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
             // (a non-qualifying own score is appended beyond it).
             let qualified = pendingHiscores.prefix(18).contains { $0.own }
             let worth = engine.formatPrice(engine.netWorth)
-            let status = engine.isDead
-                ? "You died. Final worth: \(worth) — one more run?"
-                : "Time's up! You finished worth \(worth) — play again?"
+            // The engine's final print is "<finale narrative>^<high-score
+            // commentary>" — e.g. the paraquat weed ends the game with
+            // "You hallucinated…^Then you died…^You didn't even make…".
+            // The news log is hidden behind this overlay, so surface the
+            // narrative (the commentary is always the last segment; a
+            // narrative-less ending leaves it empty) as the status.
+            let finale = lastPrintMessage.split(separator: "^")
+                .dropLast().joined(separator: " ")
+            let status = finale.isEmpty
+                ? (engine.isDead
+                   ? "You died. Final worth: \(worth) — one more run?"
+                   : "Time's up! You finished worth \(worth) — play again?")
+                : "\(finale) Final worth: \(worth) — play again?"
             showWelcome(status: status, run: netWorthHistory, celebrate: qualified)
         }
     }

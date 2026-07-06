@@ -45,6 +45,8 @@ static gchar *g_enemy_name = NULL;
 static gchar *g_enemy_bitchname = NULL;
 static int g_enemy_health = -1, g_enemy_bitches = -1;
 
+static void dp_snapshot_difficulty_baseline(void);
+
 static void reset_enemy(void)
 {
   g_free(g_enemy_name); g_enemy_name = NULL;
@@ -280,6 +282,10 @@ void dp_init(const char *resource_dir, const char *hiscore_path)
    * engine's SoundPlay calls are silent no-ops. */
   SoundInit();
   SoundOpen(NULL);
+
+  /* Record the configured police/cop stats as the "Normal" difficulty
+   * baseline (see dp_set_difficulty). */
+  dp_snapshot_difficulty_baseline();
 }
 
 void dp_set_callback(DPEventCallback cb, void *user)
@@ -291,6 +297,120 @@ void dp_set_callback(DPEventCallback cb, void *user)
 void dp_set_antique(bool antique)
 {
   WantAntique = antique ? TRUE : FALSE;
+}
+
+void dp_set_game_rules(const DPGameRules *rules)
+{
+  NumTurns = rules->num_turns;
+  StartCash = rules->start_cash;
+  StartDebt = rules->start_debt;
+  Sanitized = rules->sanitized ? TRUE : FALSE;
+  DebtInterest = rules->debt_interest;
+  BankInterest = rules->bank_interest;
+  Drugs.CheapDivide = rules->cheap_divide;
+  Drugs.ExpensiveMultiply = rules->expensive_multiply;
+  PlayerArmor = rules->player_armor;
+  BitchArmor = rules->bitch_armor;
+  Bitch.MinPrice = rules->bitch_min_price;
+  Bitch.MaxPrice = rules->bitch_max_price;
+  Prices.Spy = rules->spy_price;
+  Prices.Tipoff = rules->tipoff_price;
+  StartDate.day = rules->start_day;
+  StartDate.month = rules->start_month;
+  StartDate.year = rules->start_year;
+}
+
+/* Baselines for the difficulty preset, snapshotted after dp_init has
+ * applied the configuration (so user config files are respected). */
+static int *g_base_police = NULL;
+static struct {
+  int attack, defend, mindep, maxdep;
+} *g_base_cop = NULL;
+static int g_base_nloc = 0, g_base_ncop = 0;
+
+static void dp_snapshot_difficulty_baseline(void)
+{
+  int i;
+
+  g_base_nloc = NumLocation;
+  g_base_police = g_new(int, g_base_nloc);
+  for (i = 0; i < g_base_nloc; i++) {
+    g_base_police[i] = Location[i].PolicePresence;
+  }
+  g_base_ncop = NumCop;
+  g_base_cop = g_malloc(g_base_ncop * sizeof(*g_base_cop));
+  for (i = 0; i < g_base_ncop; i++) {
+    g_base_cop[i].attack = Cop[i].AttackPenalty;
+    g_base_cop[i].defend = Cop[i].DefendPenalty;
+    g_base_cop[i].mindep = Cop[i].MinDeputies;
+    g_base_cop[i].maxdep = Cop[i].MaxDeputies;
+  }
+}
+
+static int dp_clampi(int v, int lo, int hi)
+{
+  return v < lo ? lo : (v > hi ? hi : v);
+}
+
+void dp_set_difficulty(DPDifficulty level)
+{
+  int i;
+
+  if (!g_base_police || !g_base_cop) {
+    return;                     /* dp_init not run yet */
+  }
+
+  /* Always restore the baseline first so presets never compound. */
+  for (i = 0; i < g_base_nloc && i < NumLocation; i++) {
+    Location[i].PolicePresence = g_base_police[i];
+  }
+  for (i = 0; i < g_base_ncop && i < NumCop; i++) {
+    Cop[i].AttackPenalty = g_base_cop[i].attack;
+    Cop[i].DefendPenalty = g_base_cop[i].defend;
+    Cop[i].MinDeputies = g_base_cop[i].mindep;
+    Cop[i].MaxDeputies = g_base_cop[i].maxdep;
+  }
+  if (level == DP_DIFFICULTY_NORMAL) {
+    return;
+  }
+
+  for (i = 0; i < g_base_nloc && i < NumLocation; i++) {
+    if (level == DP_DIFFICULTY_EASY) {
+      Location[i].PolicePresence = g_base_police[i] / 2;
+    } else {
+      Location[i].PolicePresence =
+          dp_clampi(g_base_police[i] * 3 / 2, 0, 100);
+    }
+  }
+  /* A larger attack/defend penalty makes cops worse shots (it is
+   * subtracted from their combat rating in serverside.c). */
+  for (i = 0; i < g_base_ncop && i < NumCop; i++) {
+    if (level == DP_DIFFICULTY_EASY) {
+      Cop[i].AttackPenalty = dp_clampi(g_base_cop[i].attack + 15, 0, 100);
+      Cop[i].DefendPenalty = dp_clampi(g_base_cop[i].defend + 15, 0, 100);
+      Cop[i].MaxDeputies = g_base_cop[i].maxdep / 2;
+      Cop[i].MinDeputies = MIN(g_base_cop[i].mindep, Cop[i].MaxDeputies);
+    } else {
+      Cop[i].AttackPenalty = dp_clampi(g_base_cop[i].attack - 10, 0, 100);
+      Cop[i].DefendPenalty = dp_clampi(g_base_cop[i].defend - 10, 0, 100);
+      Cop[i].MinDeputies = g_base_cop[i].mindep * 2;
+      Cop[i].MaxDeputies = g_base_cop[i].maxdep * 2;
+    }
+  }
+}
+
+void dp_set_family_friendly_names(bool family_friendly)
+{
+  AssignName(&Names.Bitch, (gchar *)(family_friendly ? "escort" : "bitch"));
+  AssignName(&Names.Bitches,
+             (gchar *)(family_friendly ? "escorts" : "bitches"));
+}
+
+void dp_set_currency(const char *symbol, bool prefix)
+{
+  AssignName(&Currency.Symbol,
+             (gchar *)(symbol && symbol[0] ? symbol : "$"));
+  Currency.Prefix = prefix ? TRUE : FALSE;
 }
 
 void dp_new_game(const char *player_name)
