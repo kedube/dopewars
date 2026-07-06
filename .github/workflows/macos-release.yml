@@ -1,0 +1,50 @@
+name: macos-release
+
+# Builds the native macOS app, packages it as a DMG, and attaches it to a
+# GitHub release. Runs on version tags (1.6.2, v1.6.2, ...) and can be
+# triggered manually from the Actions tab (manual runs on a branch upload
+# the DMG as a workflow artifact only; manual runs on a tag also create
+# the release).
+
+on:
+  push:
+    tags: ['v*', '[0-9]*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    # macos-latest is Apple Silicon; bundle_libs.sh expects Homebrew under
+    # /opt/homebrew, so the resulting app is self-contained on arm64.
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: brew install glib pkg-config
+
+    - name: Build DMG
+      run: ./macos/make_dmg.sh
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: DopeWars-macOS-dmg
+        path: macos/build/*.dmg
+        if-no-files-found: error
+
+    - name: Attach DMG to GitHub release
+      if: startsWith(github.ref, 'refs/tags/')
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        tag="${GITHUB_REF_NAME}"
+        if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          gh release upload "$tag" macos/build/*.dmg --clobber --repo "$GITHUB_REPOSITORY"
+        else
+          gh release create "$tag" macos/build/*.dmg \
+            --title "Dope Wars $tag" --generate-notes --repo "$GITHUB_REPOSITORY"
+        fi
