@@ -80,6 +80,7 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
     let sellButton = NSButton(title: "Sell", target: nil, action: nil)
     let dropButton = NSButton(title: "Drop", target: nil, action: nil)
     let jetButton = NSButton(title: "Jet ✈", target: nil, action: nil)
+    private let shortcutsLabel = NSTextField(labelWithString: "")
 
     // Inline prompt bar (replaces question alert sheets)
     let promptBox = NSBox()
@@ -351,11 +352,11 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
         setSymbol("cart.badge.minus", on: sellButton)
         setSymbol("trash", on: dropButton)
         setSymbol("airplane", on: jetButton)
-        let shortcuts = NSTextField(labelWithString: "Keys: B buy · S sell · D drop · J jet · 1–\(min(engine.locations.count, 9)) travel · F/R/S/D in fights")
-        shortcuts.font = .systemFont(ofSize: 11)
-        shortcuts.textColor = .tertiaryLabelColor
+        shortcutsLabel.font = .systemFont(ofSize: 11)
+        shortcutsLabel.textColor = .tertiaryLabelColor
+        updateShortcutLegend()
         let buttons = NSStackView(views: [buyButton, sellButton, dropButton, jetButton,
-                                          NSView(), shortcuts])
+                                          NSView(), shortcutsLabel])
         buttons.orientation = .horizontal
         buttons.spacing = 10
 
@@ -547,6 +548,17 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
 
     // MARK: Keyboard shortcuts
 
+    /// Key legend under the action buttons; per game mode (antique has
+    /// no Drop and fewer locations).
+    private func updateShortcutLegend() {
+        var parts = ["B buy", "S sell"]
+        if !engine.isAntique { parts.append("D drop") }
+        parts.append("J jet")
+        parts.append("1–\(min(engine.locations.count, 9)) travel")
+        parts.append("F/R/S/D in fights")
+        shortcutsLabel.stringValue = "Keys: " + parts.joined(separator: " · ")
+    }
+
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] ev in
             guard let self = self,
@@ -640,6 +652,7 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
         // original clients do.
         bitchesTile.isHidden = engine.isAntique
         dropButton.isHidden = engine.isAntique
+        updateShortcutLegend()
         clearLog()
         lastCash = nil
         lastHealth = nil
