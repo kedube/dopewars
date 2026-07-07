@@ -61,7 +61,11 @@ void dp_set_callback(DPEventCallback cb, void *user);
 /* Start a fresh single-player game for a player with the given name. */
 void dp_new_game(const char *player_name);
 
-/* Enable "antique" (original Drug Wars) mode for the next new game. */
+/* Enable "antique" (original Drug Wars) mode for the next new game.
+ * Mirrors the engine's antique setup: no gun shop, no pub (so escorts
+ * can't be hired — street offers become trenchcoat upgrades), only the
+ * first six locations, and the separate antique high-score table.
+ * Disabling restores the full configured world. */
 void dp_set_antique(bool antique);
 
 /* Game-rule overrides, applied to the NEXT new game. Engine defaults

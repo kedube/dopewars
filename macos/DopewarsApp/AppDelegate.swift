@@ -182,7 +182,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         centered.alignment = .center
         let credits = NSAttributedString(
             string: """
-                Native macOS port by Katherine Dubé
+                Native macOS port by Katherine Dubé.
 
                 Dopewars 1.6.2 by Ben Webb,
                 based on John E. Dell's "Drug Wars".

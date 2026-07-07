@@ -294,10 +294,7 @@ void dp_set_callback(DPEventCallback cb, void *user)
   g_cb_user = user;
 }
 
-void dp_set_antique(bool antique)
-{
-  WantAntique = antique ? TRUE : FALSE;
-}
+/* dp_set_antique is defined below the baseline snapshot it relies on. */
 
 void dp_set_game_rules(const DPGameRules *rules)
 {
@@ -320,13 +317,16 @@ void dp_set_game_rules(const DPGameRules *rules)
   StartDate.year = rules->start_year;
 }
 
-/* Baselines for the difficulty preset, snapshotted after dp_init has
- * applied the configuration (so user config files are respected). */
+/* Baselines for the difficulty preset and for antique-mode toggling,
+ * snapshotted after dp_init has applied the configuration (so user
+ * config files are respected). */
 static int *g_base_police = NULL;
 static struct {
   int attack, defend, mindep, maxdep;
 } *g_base_cop = NULL;
 static int g_base_nloc = 0, g_base_ncop = 0;
+static struct LOCATION *g_base_loc = NULL;
+static int g_base_gunshop = 0, g_base_roughpub = 0;
 
 static void dp_snapshot_difficulty_baseline(void)
 {
@@ -334,9 +334,13 @@ static void dp_snapshot_difficulty_baseline(void)
 
   g_base_nloc = NumLocation;
   g_base_police = g_new(int, g_base_nloc);
+  g_base_loc = g_new0(struct LOCATION, g_base_nloc);
   for (i = 0; i < g_base_nloc; i++) {
     g_base_police[i] = Location[i].PolicePresence;
+    CopyLocation(&g_base_loc[i], &Location[i]);
   }
+  g_base_gunshop = GunShopLoc;
+  g_base_roughpub = RoughPubLoc;
   g_base_ncop = NumCop;
   g_base_cop = g_malloc(g_base_ncop * sizeof(*g_base_cop));
   for (i = 0; i < g_base_ncop; i++) {
@@ -344,6 +348,37 @@ static void dp_snapshot_difficulty_baseline(void)
     g_base_cop[i].defend = Cop[i].DefendPenalty;
     g_base_cop[i].mindep = Cop[i].MinDeputies;
     g_base_cop[i].maxdep = Cop[i].MaxDeputies;
+  }
+}
+
+void dp_set_antique(bool antique)
+{
+  int i;
+
+  WantAntique = antique ? TRUE : FALSE;
+  if (!g_base_loc) {
+    return;                     /* dp_init not run yet */
+  }
+  /* Mirror SetupParameters()'s antique branch: the original game has no
+   * gun shop and no pub (so no escort hiring), and only the first six
+   * locations. Restore the configured world when antique is off. */
+  if (antique) {
+    GunShopLoc = RoughPubLoc = 0;
+    if (g_base_nloc >= 6 && NumLocation != 6) {
+      ResizeLocations(6);
+      for (i = 0; i < 6; i++) {
+        CopyLocation(&Location[i], &g_base_loc[i]);
+      }
+    }
+  } else {
+    GunShopLoc = g_base_gunshop;
+    RoughPubLoc = g_base_roughpub;
+    if (NumLocation != g_base_nloc) {
+      ResizeLocations(g_base_nloc);
+    }
+    for (i = 0; i < g_base_nloc; i++) {
+      CopyLocation(&Location[i], &g_base_loc[i]);
+    }
   }
 }
 

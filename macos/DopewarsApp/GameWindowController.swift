@@ -585,6 +585,7 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
             if fightDealButton.isEnabled { fightDealTapped(); return true }
             return false
         case "d":
+            if dropButton.isHidden { return false }   // antique: no dumping
             dropTapped(); return true
         case "y", "n":
             if !promptBox.isHidden, let idx = promptAllowed.firstIndex(
@@ -634,6 +635,11 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
         engine.setDifficulty(DopewarsPrefs.difficulty)
         engine.setFamilyFriendlyNames(DopewarsPrefs.familyFriendly)
         bitchesTile.caption = engine.bitchesName.uppercased()
+        // Antique mode has no escorts (street offers are trenchcoat
+        // upgrades instead) and no drug dumping; hide both like the
+        // original clients do.
+        bitchesTile.isHidden = engine.isAntique
+        dropButton.isHidden = engine.isAntique
         clearLog()
         lastCash = nil
         lastHealth = nil
