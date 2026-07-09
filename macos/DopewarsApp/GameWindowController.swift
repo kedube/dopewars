@@ -645,6 +645,8 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
                             startMonth: DopewarsPrefs.startMonth,
                             startYear: DopewarsPrefs.startYear)
         engine.setDifficulty(DopewarsPrefs.difficulty)
+        let board = DopewarsPrefs.scoreBoard
+        engine.setScoreBoard(suffix: board.suffix, label: board.label)
         engine.setFamilyFriendlyNames(DopewarsPrefs.familyFriendly)
         bitchesTile.caption = engine.bitchesName.uppercased()
         // Antique mode has no escorts (street offers are trenchcoat
@@ -665,6 +667,10 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
         lastEnemyHealth = nil
         lastEnemyName = ""
         engine.newGame(playerName: name)
+        if board.suffix != nil {
+            appendLog("Custom rules (\(board.label)) — scores go to their "
+                      + "own high-score board.", color: .systemOrange)
+        }
         lastLocation = engine.location
         rebuildLocationStrip()
         hidePrompt()
@@ -1446,7 +1452,8 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
     private func showHighScores(gameOver: Bool) {
         let win = hiscoresWindow ?? HighScoresWindowController()
         hiscoresWindow = win
-        win.setScores(pendingHiscores, gameOver: gameOver)
+        win.setScores(pendingHiscores, gameOver: gameOver,
+                      board: engine.scoreBoardLabel)
         win.showWindow(nil)
         win.window?.makeKeyAndOrderFront(nil)
         if gameOver {

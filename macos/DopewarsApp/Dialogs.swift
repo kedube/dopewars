@@ -154,8 +154,9 @@ final class PreferencesWindowController: NSWindowController, NSTextFieldDelegate
                                      action: #selector(restoreDefaults))
 
         let gameNote = NSTextField(wrappingLabelWithString:
-            "Game rules take effect when you start a new game. High scores "
-            + "from games with non-default rules aren't really comparable.")
+            "Game rules take effect when you start a new game. Games with "
+            + "non-default rules compete on their own high-score board, so "
+            + "scores are only compared against identical rules.")
         gameNote.font = .systemFont(ofSize: 11)
         gameNote.textColor = .secondaryLabelColor
 
@@ -847,6 +848,7 @@ final class LoanSharkController: NSWindowController {
 /// player's own score emphasized.
 final class HighScoresWindowController: NSWindowController {
     private let titleLabel = NSTextField(labelWithString: "High Scores")
+    private let boardLabel = NSTextField(labelWithString: "")
     private let scoresLabel = NSTextField(labelWithString: "")
 
     convenience init() {
@@ -862,10 +864,12 @@ final class HighScoresWindowController: NSWindowController {
     private func build() {
         guard let content = window?.contentView else { return }
         titleLabel.font = .systemFont(ofSize: 16, weight: .bold)
+        boardLabel.font = .systemFont(ofSize: 11)
+        boardLabel.textColor = .secondaryLabelColor
         scoresLabel.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         scoresLabel.maximumNumberOfLines = 0
 
-        let root = NSStackView(views: [titleLabel, scoresLabel])
+        let root = NSStackView(views: [titleLabel, boardLabel, scoresLabel])
         root.orientation = .vertical
         root.alignment = .leading
         root.spacing = 10
@@ -906,8 +910,10 @@ final class HighScoresWindowController: NSWindowController {
                         own: own)
     }
 
-    func setScores(_ scores: [(text: String, own: Bool)], gameOver: Bool) {
+    func setScores(_ scores: [(text: String, own: Bool)], gameOver: Bool,
+                   board: String) {
         titleLabel.stringValue = gameOver ? "Game Over — High Scores" : "High Scores"
+        boardLabel.stringValue = "Board: \(board)"
 
         var rows: [ScoreRow] = []
         var rawFallback: [(String, Bool)] = []

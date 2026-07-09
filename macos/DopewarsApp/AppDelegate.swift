@@ -28,6 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         GameEngine.shared.setFamilyFriendlyNames(DopewarsPrefs.familyFriendly)
         GameEngine.shared.setCurrency(symbol: DopewarsPrefs.currencySymbol,
                                       prefix: DopewarsPrefs.currencyPrefix)
+        // Select the high-score board matching the current rule prefs so
+        // a pre-game High Scores view shows the right table.
+        let board = DopewarsPrefs.scoreBoard
+        GameEngine.shared.setScoreBoard(suffix: board.suffix, label: board.label)
 
         // Restore mute preference.
         let muted = UserDefaults.standard.bool(forKey: Self.muteDefaultsKey)

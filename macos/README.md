@@ -77,6 +77,10 @@ the app runs on Macs without Homebrew, and ad-hoc code-signs the result.
 ## Notes
 
 - High scores are stored in `~/Library/Application Support/Dopewars/`.
+  Games played with non-default rules (length, difficulty, economy, …)
+  are scored on their own board — a separate `.sco` file named after the
+  rule set — so scores are only compared against identical rules.
+  Antique games have their own table within each board, as upstream.
 - Sound uses the engine's native Cocoa sound driver (`plugins/sound_cocoa.m`).
 - This build is single-player only. The original networked multiplayer,
   metaserver, and AI-player features are intentionally compiled out; the

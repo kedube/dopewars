@@ -82,6 +82,32 @@ final class GameEngine {
             GameEngine.shared.dispatch(kind: kind, s1: s1, s2: s2)
         }, nil)
         dp_init(resourceDir, hiscorePath)
+        baseHiscorePath = hiscorePath
+    }
+
+    // MARK: Score boards
+
+    private var baseHiscorePath = ""
+
+    /// Label of the board currently in use (e.g. "Standard rules").
+    private(set) var scoreBoardLabel = "Standard rules"
+
+    /// Point the engine at the high-score board for a rule set. A nil
+    /// suffix selects the standard board (the base score file); a
+    /// custom rule set gets its own sibling file so scores are only
+    /// compared against identical rules. Call before a new game.
+    func setScoreBoard(suffix: String?, label: String) {
+        scoreBoardLabel = label
+        guard !baseHiscorePath.isEmpty else { return }
+        var path = baseHiscorePath
+        if let suffix {
+            if path.hasSuffix(".sco") {
+                path = String(path.dropLast(4)) + "-\(suffix).sco"
+            } else {
+                path += "-\(suffix)"
+            }
+        }
+        path.withCString { dp_set_hiscore_path($0) }
     }
 
     func setAntique(_ on: Bool) { dp_set_antique(on) }

@@ -61,6 +61,12 @@ void dp_set_callback(DPEventCallback cb, void *user);
 /* Start a fresh single-player game for a player with the given name. */
 void dp_new_game(const char *player_name);
 
+/* Redirect the high score file (per-rule-set score boards). Closes the
+ * current file and opens/creates the new one; the engine writes a fresh
+ * header on the next new game. Call before dp_new_game. No-op before
+ * dp_init or if the path is already active. */
+void dp_set_hiscore_path(const char *path);
+
 /* Enable "antique" (original Drug Wars) mode for the next new game.
  * Mirrors the engine's antique setup: no gun shop, no pub (so escorts
  * can't be hired — street offers become trenchcoat upgrades), only the

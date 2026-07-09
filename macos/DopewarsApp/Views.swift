@@ -225,6 +225,68 @@ enum DopewarsPrefs {
         }
         NotificationCenter.default.post(name: .dopewarsPrefsChanged, object: nil)
     }
+
+    // MARK: Score boards
+
+    /// High-score board identity for the current game rules. Games are
+    /// only comparable against identical score-affecting rules (length,
+    /// difficulty, economy, armor, sanitized), so each distinct rule set
+    /// gets its own board: a nil suffix means the standard board; a
+    /// custom set yields a filename suffix and a human-readable label.
+    /// Cosmetic settings (currency, wording, start date) don't count;
+    /// antique games already have their own table inside each board.
+    static var scoreBoard: (suffix: String?, label: String) {
+        var diffs: [String] = []
+        if gameTurns != defaultGameTurns {
+            diffs.append(gameTurns == 0 ? "endless"
+                         : "\(gameTurns) day\(gameTurns == 1 ? "" : "s")")
+        }
+        if difficulty != defaultDifficulty {
+            diffs.append(difficulty == 0 ? "Easy" : "Hard")
+        }
+        if sanitized { diffs.append("sanitized") }
+        if startCash != defaultStartCash { diffs.append("cash \(startCash)") }
+        if startDebt != defaultStartDebt { diffs.append("debt \(startDebt)") }
+        if debtInterest != defaultDebtInterest {
+            diffs.append("loan \(debtInterest)%")
+        }
+        if bankInterest != defaultBankInterest {
+            diffs.append("bank \(bankInterest)%")
+        }
+        if expensiveMultiply != defaultExpensiveMultiply {
+            diffs.append("spikes ×\(expensiveMultiply)")
+        }
+        if cheapDivide != defaultCheapDivide {
+            diffs.append("crashes ÷\(cheapDivide)")
+        }
+        if playerArmor != defaultPlayerArmor {
+            diffs.append("armor \(playerArmor)%")
+        }
+        if bitchArmor != defaultBitchArmor {
+            diffs.append("escort armor \(bitchArmor)%")
+        }
+        if bitchMinPrice != defaultBitchMinPrice
+            || bitchMaxPrice != defaultBitchMaxPrice {
+            diffs.append("escort hire \(bitchMinPrice)–\(bitchMaxPrice)")
+        }
+        if diffs.isEmpty { return (nil, "Standard rules") }
+
+        // Filename: readable primary dimensions plus a stable FNV-1a
+        // hash of the full rule tuple (Swift's Hasher is randomized
+        // per process, so it can't name files).
+        let key = [gameTurns, difficulty, sanitized ? 1 : 0,
+                   Int(startCash), Int(startDebt), debtInterest,
+                   bankInterest, cheapDivide, expensiveMultiply,
+                   playerArmor, bitchArmor,
+                   Int(bitchMinPrice), Int(bitchMaxPrice)]
+            .map(String.init).joined(separator: ".")
+        var hash: UInt64 = 0xcbf29ce484222325
+        for byte in key.utf8 { hash = (hash ^ UInt64(byte)) &* 0x100000001b3 }
+        let difficultyName = ["easy", "normal", "hard"][difficulty]
+        let suffix = "\(gameTurns)d-\(difficultyName)-"
+            + String(format: "%08x", UInt32(truncatingIfNeeded: hash))
+        return (suffix, diffs.joined(separator: " · "))
+    }
 }
 
 private extension Comparable {

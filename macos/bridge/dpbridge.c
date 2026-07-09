@@ -294,6 +294,19 @@ void dp_set_callback(DPEventCallback cb, void *user)
   g_cb_user = user;
 }
 
+void dp_set_hiscore_path(const char *path)
+{
+  if (!path || !path[0] || !HiScoreFile) {
+    return;                     /* dp_init not run yet */
+  }
+  if (strcmp(HiScoreFile, path) == 0) {
+    return;                     /* already on this board */
+  }
+  CloseHighScoreFile();
+  AssignName(&HiScoreFile, (gchar *)path);
+  OpenHighScoreFile();
+}
+
 /* dp_set_antique is defined below the baseline snapshot it relies on. */
 
 void dp_set_game_rules(const DPGameRules *rules)
