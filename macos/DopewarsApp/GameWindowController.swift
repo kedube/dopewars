@@ -1483,6 +1483,15 @@ final class GameWindowController: NSWindowController, NSTableViewDataSource, NST
         }
     }
 
+    /// Clear (and, if a game is live, repopulate) an open High Scores
+    /// window after the boards were reset.
+    func refreshHighScoresAfterReset() {
+        guard let win = hiscoresWindow, win.window?.isVisible == true else { return }
+        pendingHiscores = []
+        win.setScores([], gameOver: false, board: engine.scoreBoardLabel)
+        engine.requestScore()
+    }
+
     // MARK: Toolbar actions
 
     @objc private func toolbarScores() { engine.requestScore() }

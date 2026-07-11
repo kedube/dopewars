@@ -83,11 +83,13 @@ final class GameEngine {
         }, nil)
         dp_init(resourceDir, hiscorePath)
         baseHiscorePath = hiscorePath
+        activeHiscorePath = hiscorePath
     }
 
     // MARK: Score boards
 
     private var baseHiscorePath = ""
+    private var activeHiscorePath = ""
 
     /// Label of the board currently in use (e.g. "Standard rules").
     private(set) var scoreBoardLabel = "Standard rules"
@@ -108,6 +110,26 @@ final class GameEngine {
             }
         }
         path.withCString { dp_set_hiscore_path($0) }
+        activeHiscorePath = path
+    }
+
+    /// Erase the active high-score board (recreated empty). With
+    /// `allBoards`, also delete every other rule-set board file next to
+    /// the base score file; those aren't open, so plain deletion works.
+    func resetHighScores(allBoards: Bool) {
+        dp_reset_hiscores()
+        guard allBoards, !baseHiscorePath.isEmpty else { return }
+        let base = baseHiscorePath as NSString
+        let dir = base.deletingLastPathComponent
+        let stem = (base.lastPathComponent as NSString).deletingPathExtension
+        let fm = FileManager.default
+        for f in (try? fm.contentsOfDirectory(atPath: dir)) ?? [] {
+            guard f.hasSuffix(".sco"),
+                  f == stem + ".sco" || f.hasPrefix(stem + "-") else { continue }
+            let path = dir + "/" + f
+            guard path != activeHiscorePath else { continue }
+            try? fm.removeItem(atPath: path)
+        }
     }
 
     func setAntique(_ on: Bool) { dp_set_antique(on) }

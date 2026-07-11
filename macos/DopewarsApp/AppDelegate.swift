@@ -85,6 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         gameMenu.addItem(NSMenuItem.separator())
         gameMenu.addItem(withTitle: "High Scores", action: #selector(scores),
                          keyEquivalent: "s").target = self
+        gameMenu.addItem(withTitle: "Reset High Scores…",
+                         action: #selector(resetScores),
+                         keyEquivalent: "").target = self
         gameMenu.addItem(NSMenuItem.separator())
         gameMenu.addItem(withTitle: "End Game", action: #selector(endGame),
                          keyEquivalent: "e").target = self
@@ -153,6 +156,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func scores()   { GameEngine.shared.requestScore() }
+
+    @objc private func resetScores() {
+        let engine = GameEngine.shared
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Reset high scores?"
+        alert.informativeText = "Current board: \(engine.scoreBoardLabel). "
+            + "This permanently deletes the recorded scores. \"All Boards\" "
+            + "also deletes the boards of every other rule set."
+        alert.addButton(withTitle: "Cancel")
+        let current = alert.addButton(withTitle: "Reset Current Board")
+        let all = alert.addButton(withTitle: "Reset All Boards")
+        current.hasDestructiveAction = true
+        all.hasDestructiveAction = true
+        switch alert.runModal() {
+        case .alertSecondButtonReturn:
+            engine.resetHighScores(allBoards: false)
+        case .alertThirdButtonReturn:
+            engine.resetHighScores(allBoards: true)
+        default:
+            return
+        }
+        gameController.refreshHighScoresAfterReset()
+    }
     @objc private func endGame()  { GameEngine.shared.wantQuit() }
     @objc private func website()  { GameEngine.shared.openURL("https://dopewars.sourceforge.io/") }
 

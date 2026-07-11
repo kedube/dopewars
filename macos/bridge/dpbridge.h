@@ -67,6 +67,10 @@ void dp_new_game(const char *player_name);
  * dp_init or if the path is already active. */
 void dp_set_hiscore_path(const char *path);
 
+/* Erase the currently open high-score board: deletes the score file
+ * and recreates it with a fresh header. */
+void dp_reset_hiscores(void);
+
 /* Enable "antique" (original Drug Wars) mode for the next new game.
  * Mirrors the engine's antique setup: no gun shop, no pub (so escorts
  * can't be hired — street offers become trenchcoat upgrades), only the

@@ -307,6 +307,19 @@ void dp_set_hiscore_path(const char *path)
   OpenHighScoreFile();
 }
 
+void dp_reset_hiscores(void)
+{
+  if (!HiScoreFile) {
+    return;                     /* dp_init not run yet */
+  }
+  CloseHighScoreFile();
+  remove(HiScoreFile);
+  OpenHighScoreFile();
+  /* Write a fresh header now so the empty board reads back cleanly
+   * (normally this only happens at the next new game). */
+  CheckHighScoreFileConfig();
+}
+
 /* dp_set_antique is defined below the baseline snapshot it relies on. */
 
 void dp_set_game_rules(const DPGameRules *rules)
